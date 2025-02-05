@@ -1,0 +1,887 @@
+---
+title: "osteoporosis_project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Importing required libraries
+library(ggplot2)    # For data visualization
+library(dplyr)      # For data manipulation
+library(tidyr)      # For data tidying
+library(tibble)     # For data frame handling
+library(randomForest)  # For Random forest algorithm
+library(rpart)      # For decision tree
+library(gridExtra)  # For layouts for plots
+library(stats)      # For statistical learnings
+library(glmnet)     # For regularized regression models
+library(rpart.plot) # For visualize decision tree
+library(caret)      # For machine learning framework
+library(e1071)      # For machine learning algo
+library(pheatmap)   # For heatmap visualization 
+```
+
+```{r}
+# Loading data
+df <- read.csv("osteoporosis.csv")
+# Display data
+head(df)
+```
+
+```{r}
+# Shape of data
+dim(df)
+```
+
+```{r}
+# Information of data
+str(df)
+
+```
+
+
+```{r}
+# Replacing missing values with "None"
+df[is.na(df)] <- "None"
+```
+
+```{r}
+# Drop column "Id"
+df <- df[, -which(colnames(df) == "Id")]
+   
+```
+
+```{r}
+# Identify categorical columns
+categorical_columns <- colnames(df)[sapply(df, is.character)]
+
+# Initialize counter
+i <- 1
+
+# Iterate each categorical column
+while (i <= length(categorical_columns)) {
+  col <- categorical_columns[i]
+  cat("Value counts for column:", col, "\n")
+  print(table(df[[col]]))
+  cat("\n")  # Add a newline
+  i <- i + 1
+}
+
+```
+
+```{r}
+# Statistics of numerical columns
+summary(df)
+
+```
+
+```{r}
+# Display data  
+head(df)
+
+```
+
+```{r}
+# Count the repetation of each category
+osteoporosis_counts <- table(df$Osteoporosis)
+
+# Define colors
+colors <- c("pink", "yellow")
+
+# Generate labels with percentages
+labels <- character(length(osteoporosis_counts))
+for (i in 1:length(osteoporosis_counts)) {
+  percentage <- round(osteoporosis_counts[i] / sum(osteoporosis_counts) * 100, 1)
+  labels[i] <- paste(names(osteoporosis_counts)[i], "(", percentage, "%)", sep = "")
+}
+
+# Pie chart
+pie(osteoporosis_counts, 
+    main = "Osteoporosis", 
+    col = colors, 
+    labels = labels)
+
+
+```
+
+
+```{r}
+# Define colors for every group
+colors <- c(rgb(0.6, 0.2, 0.8, 0.5),  # Purple
+            rgb(1, 0.6, 0, 0.5))      # Orange
+
+# Define group labels
+group_labels <- c("Osteoporosis = Yes", "Osteoporosis = No")
+
+# Plot the histogram for every group 
+for (i in 1:2) {
+  if (i == 1) {
+    # First histogram (Osteoporosis = Yes)
+    hist(df$Age[df$Osteoporosis == 1], 
+         col = colors[i], 
+         xlim = c(min(df$Age), max(df$Age)), 
+         breaks = 30, 
+         main = "Osteoporosis by Age", 
+         xlab = "Age", 
+         ylab = "Frequency")
+  } else {
+    # Second histogram (Osteoporosis = No)
+    hist(df$Age[df$Osteoporosis == 0], 
+         col = colors[i], 
+         xlim = c(min(df$Age), max(df$Age)), 
+         breaks = 30, 
+         add = TRUE)
+  }
+}
+
+# Add legend with colors
+legend("topright", 
+       legend = group_labels, 
+       fill = colors)
+
+```
+
+```{r}
+# Plot for Gender vs Osteoporosis
+ggplot(df, aes(x=Gender, fill=factor(Osteoporosis))) +
+  geom_bar(position="dodge") + 
+  labs(title="Gender vs Osteoporosis", fill="Osteoporosis") +
+  scale_fill_manual(values=c("green", "blue")) 
+
+```
+
+```{r}
+# Plot for Hormonal Changes vs Osteoporosis
+ggplot(df, aes(x = `Hormonal.Changes`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + labs(title = "Hormonal changes and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("green", "blue")) 
+
+```
+
+```{r}
+
+# Plot for Family History vs Osteoporosis
+ggplot(df, aes(x = `Family.History`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Family History and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("green", "blue"))
+
+```
+
+```{r}
+
+# Plot for Race/Ethnicity vs Osteoporosis
+ggplot(df, aes(x = `Race.Ethnicity`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Race/Ethnicity and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("green", "blue"))
+
+```
+
+```{r}
+# Plot for Body Weight vs Osteoporosis
+ggplot(df, aes(x = `Body.Weight`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Body Weight and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("green", "blue")) 
+
+```
+
+```{r}
+
+
+# Plot for Calcium Intake vs Osteoporosis
+plot1 <- ggplot(df, aes(x = `Calcium.Intake`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Calcium Intake and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("green", "blue"))
+
+# Plot for Vitamin D Intake vs Osteoporosis
+plot2 <- ggplot(df, aes(x = `Vitamin.D.Intake`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Vitamin D Intake and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("yellow", "black"))
+
+# Arrange plots side by side
+grid.arrange(plot1, plot2, ncol = 2)
+
+```
+
+
+```{r}
+
+# Plot for Physical Activity vs Osteoporosis
+ggplot(df, aes(x = `Physical.Activity`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Physical Activity and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("black", "white"))
+
+```
+
+```{r}
+
+# Plot for Smoking vs Osteoporosis
+plot1 <- ggplot(df, aes(x = `Smoking`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Smoking and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("orange", "red"))
+
+# Plot for Alcohol Consumption vs Osteoporosis
+plot2 <- ggplot(df, aes(x = `Alcohol.Consumption`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Alcohol Consumption and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("orange", "red"))
+
+# Arrange plots side by side
+grid.arrange(plot1, plot2, ncol = 2)
+
+```
+
+```{r}
+
+# Plot for Medical Conditions vs Osteoporosis
+plot1 <- ggplot(df, aes(x = `Medical.Conditions`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Medical Conditions and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("purple", "darkgreen"))
+
+# Plot for Medications and Osteoporosis
+plot2 <- ggplot(df, aes(x = `Medications`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Medications and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("violet", "lightblue"))
+
+
+grid.arrange(plot1, plot2, ncol = 2)
+
+```
+
+```{r}
+
+# Plot for Prior Fractures and Osteoporosis
+ggplot(df, aes(x = `Prior.Fractures`, fill = factor(Osteoporosis))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Prior Fractures and Osteoporosis", fill = "Osteoporosis") +
+  scale_fill_manual(values = c("green", "purple"))
+
+```
+
+```{r}
+# Identify character columns
+cols <- sapply(df, is.character)
+
+# Names of the character columns
+char_cols <- names(df)[cols]
+
+# Begin counter
+i <- 1
+
+# Label encoding 
+while (i <= length(char_cols)) {
+  col <- char_cols[i]
+  df[[col]] <- as.numeric(factor(df[[col]]))
+  print(paste(col, ":", unique(df[[col]])))
+  i <- i + 1
+}
+```
+
+```{r}
+# Calculate correlation matrix
+cor_matrix <- cor(df)
+
+# Plot heatmap
+library(ggplot2)
+library(reshape2)
+melted_cor_matrix <- melt(cor_matrix)
+
+ggplot(data = melted_cor_matrix, aes(Var1, Var2, fill = value)) + 
+  geom_tile() + 
+  geom_text(aes(label = round(value, 2)), color = "white") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Correlation Heatmap")
+```
+
+    TRAINING AND TESTING FOR THE DATASET 
+
+```{r}
+
+# Split the data into train and test
+set.seed(101)
+trainIndex <- createDataPartition(df$Osteoporosis, p = 0.7, list = FALSE)
+train_data <- df[trainIndex, ]
+test_data <- df[-trainIndex, ]
+
+# Divide features and target
+X_train <- train_data[, -which(names(train_data) == "Osteoporosis")]
+y_train <- train_data$Osteoporosis
+X_test <- test_data[, -which(names(test_data) == "Osteoporosis")]
+y_test <- test_data$Osteoporosis
+
+```
+
+
+    BUILDING LOGISTIC REGRESSION MODEL FOR THE OSTEOPORROSIS DATASET AND FINDING THE OPTIMAL TRAINING AND TESTING          ACCURACY
+
+```{r}
+# Create logistic regression
+logmodel <- glm(Osteoporosis ~ ., data = df, family = binomial)
+
+```
+
+```{r}
+
+# Define parameter grid
+alpha_values <- c(0, 1)                        # alpha = 0 for Ridge, alpha = 1 for Lasso
+lambda_values <- c(0.1, 1, 10, 100, 1000)      # Regularization strengths (lambda)
+
+# Train control
+train_control <- trainControl(method = "cv", number = 5, verboseIter = TRUE)
+
+# Initialize a list
+results <- list()
+
+# Perform grid search
+for (alpha in alpha_values) {
+  for (lambda in lambda_values) {
+    cat("Training with alpha =", alpha, "and lambda =", lambda, "\n")
+    
+    # Train the model 
+    model <- train(
+      Osteoporosis ~ ., 
+      data = train_data,
+      method = "glmnet",
+      trControl = train_control,
+      tuneGrid = expand.grid(alpha = alpha, lambda = lambda)
+    )
+    
+    # Store the results
+    results[[paste0("alpha_", alpha, "_lambda_", lambda)]] <- model
+  }
+}
+
+# Print the best model parameters
+for (key in names(results)) {
+  cat("Model:", key, "\n")
+  print(results[[key]]$bestTune)
+  cat("\n")
+}
+
+
+```
+
+```{r}
+
+# Convert the outcome variable
+train_data$Osteoporosis <- factor(train_data$Osteoporosis, levels = c(0, 1))
+test_data$Osteoporosis <- factor(test_data$Osteoporosis, levels = c(0, 1))
+
+# Define logistic regression 
+logmodel <- glm(Osteoporosis ~ ., data = train_data, family = binomial(link = "logit"))
+
+# Fitting the model 
+fit <- train(Osteoporosis ~ ., data = train_data, method = "glm", family = binomial(), 
+             trControl = trainControl(method = "cv", number = 10))
+
+# Training accuracy
+train_pred <- predict(fit, newdata = train_data)
+train_accuracy <- mean(train_pred == train_data$Osteoporosis)
+cat("Training accuracy:", train_accuracy, "\n")
+
+# Test accuracy
+test_pred <- predict(fit, newdata = test_data)
+test_accuracy <- mean(test_pred == test_data$Osteoporosis)
+cat("Test accuracy:", test_accuracy, "\n")
+
+
+
+```
+
+
+    BUILDING RANDOM FOREST MODEL FOR THE OSTEOPORROSIS DATASET AND FINDING THE OPTIMAL TRAINING AND TESTING ACCURACY
+
+
+```{r}
+# Creating random forest object
+rfc <- randomForest(Osteoporosis ~ ., data = train_data)
+
+```
+
+```{r}
+# Set the seed 
+set.seed(42)
+
+# Define the parameter grid 
+param_grid <- expand.grid(mtry = c(1, 2, 3, 4))  
+
+# Set up training control
+train_control <- trainControl(method = "cv", number = 10)  
+
+
+```
+
+```{r}
+# Train random forest 
+rf_model <- train(Osteoporosis ~ ., data = train_data,
+                  method = "rf",
+                  trControl = train_control,
+                  tuneGrid = param_grid,
+                  ntree = 500)
+
+```
+
+```{r}
+# Print best tuning parameters
+print(rf_model$bestTune)
+
+# Print model's summary
+print(rf_model)
+
+# Get final Random Forest
+expected_rf_model <- rf_model$finalModel
+
+```
+
+```{r}
+# Set seed for reproducibility
+set.seed(42)
+
+# Create Random Forest 
+rfc <- randomForest(Osteoporosis ~ ., data=train_data, 
+                    ntree=500, 
+                    criterion="gini", 
+                    maxdepth=10, 
+                    minsplit=2, 
+                    minbucket=2)
+
+# Training accuracy
+train_accuracy <- mean(predict(rfc, train_data) == train_data$Osteoporosis)
+cat("Training accuracy: ", train_accuracy, "\n")
+
+# Predictions on the test set
+rfc_pred <- predict(rfc, test_data)
+
+# Evaluate model on test data 
+confusion_matrix <- table(Predicted = rfc_pred, Actual = test_data$Osteoporosis)
+cat("Confusion Matrix:\n")
+print(confusion_matrix)
+
+# Accuracy
+test_accuracy <- mean(rfc_pred == test_data$Osteoporosis)
+cat("Test accuracy: ", test_accuracy, "\n")
+
+# Additional performance metrics 
+cm <- confusionMatrix(rfc_pred, test_data$Osteoporosis)
+print(cm)
+
+```
+
+
+    BUILDING DECISION TREE MODEL FOR THE OSTEOPORROSIS DATASET AND FINDING THE OPTIMAL TRAINING AND TESTING ACCURACY.
+
+```{r}
+# Define parameter grid manually
+param_grid <- expand.grid(
+  cp = c(0.01, 0.05, 0.1),         # Complexity parameter
+  maxdepth = c(10, 20, 30),        # Max depth of tree
+  minsplit = c(2, 5, 10),          # Min number of observations for a split
+  minbucket = c(2, 5, 10)          # Min number of observations in a leaf
+)
+
+# Cross-validation settings
+train_control <- trainControl(
+  method = "cv",       # Cross-validation method
+  number = 5,          # Number of folds
+  verboseIter = TRUE    # Print progress
+)
+
+# Create an empty data frame 
+grid_results <- data.frame()
+
+# Iterate parameter grid
+for (i in 1:nrow(param_grid)) {
+  # Define current set of parameters
+  params <- param_grid[i,]
+  
+  # Train the decision tree model with current parameters
+  dtree_model <- rpart(Osteoporosis ~ ., data = train_data,
+                       method = "class", cp = params$cp,
+                       maxdepth = params$maxdepth, minsplit = params$minsplit,
+                       minbucket = params$minbucket)
+  
+  # Perform cross-validation
+  cv_results <- train(
+    Osteoporosis ~ .,           # Formula: Predict Osteoporosis 
+    data = train_data,          # Training data
+    method = "rpart",           # Decision tree method
+    trControl = train_control,  # Cross-validation settings
+    tuneGrid = data.frame(cp = params$cp),
+    metric = "Accuracy"         # Metric to optimize
+  )
+  
+  # Store the results
+  grid_results <- rbind(grid_results, data.frame(
+    cp = params$cp,
+    maxdepth = params$maxdepth,
+    minsplit = params$minsplit,
+    minbucket = params$minbucket,
+    Accuracy = max(cv_results$results$Accuracy)
+  ))
+}
+
+# View the grid search results
+print(grid_results)
+
+# Find the best parameters 
+best_params <- grid_results[which.max(grid_results$Accuracy),]
+# Print the best parameters
+cat("Best Parameters:\n")
+cat("cp: ", best_params$cp, "\n")
+cat("maxdepth: ", best_params$maxdepth, "\n")
+cat("minsplit: ", best_params$minsplit, "\n")
+cat("minbucket: ", best_params$minbucket, "\n")
+
+
+# Train final model 
+best_dtree_model <- rpart(Osteoporosis ~ ., data = train_data,
+                          method = "class", cp = best_params$cp,
+                          maxdepth = best_params$maxdepth, 
+                          minsplit = best_params$minsplit,
+                          minbucket = best_params$minbucket)
+
+# Plot best decision tree
+rpart.plot(best_dtree_model)
+
+# Training accuracy
+train_pred <- predict(best_dtree_model, train_data, type = "class")
+train_accuracy <- mean(train_pred == train_data$Osteoporosis)
+cat("Training accuracy: ", train_accuracy, "\n")
+
+# Predictions on the test set
+dtree_pred <- predict(best_dtree_model, test_data, type = "class")
+
+# Evaluate model on test data 
+confusion_matrix <- table(Predicted = dtree_pred, Actual = test_data$Osteoporosis)
+cat("Confusion Matrix:\n")
+print(confusion_matrix)
+
+# Test accuracy
+test_accuracy <- mean(dtree_pred == test_data$Osteoporosis)
+cat("Test accuracy: ", test_accuracy, "\n")
+
+```
+
+
+    BUILDING SUPPORT VECTOR MACHINE (SVM) MODEL FOR THE OSTEOPORROSIS DATASET AND FINDING THE OPTIMAL TRAINING AND         TESTING ACCURACY.
+
+```{r}
+
+# Create SVM object
+svc <- svm(Osteoporosis ~ ., data = train_data, type = "C-classification")
+
+# View SVM model details
+print(svc)
+
+```
+
+```{r}
+
+# Define parameter grid 
+param_grid <- expand.grid(
+  C = c(0.1, 1, 10, 100),        # Cost parameter
+  degree = c(2, 3, 4, 5),        # Degree for polynomial kernel
+  scale = c(0.1, 1, 10)          # Scaling factor for polynomial kernel
+)
+
+# Cross-validation settings
+train_control <- trainControl(
+  method = "cv",                # Cross-validation method
+  number = 5,                   # 5-fold cross-validation
+  verboseIter = TRUE            # Print progress
+)
+
+# Train SVM model with grid search
+svm_model <- train(
+  Osteoporosis ~ .,             # Formula: Predict Osteoporosis
+  data = train_data,            # Training data
+  method = "svmPoly",           # Use polynomial kernel SVM
+  trControl = train_control,    # Cross-validation settings
+  tuneGrid = param_grid         # Parameter grid
+)
+
+# Best parameters
+print(svm_model$bestTune)
+
+# Train final model
+svc <- svm(
+  Osteoporosis ~ ., 
+  data = train_data,
+  type = "C-classification",
+  kernel = "polynomial",
+  cost = svm_model$bestTune$C,
+  degree = svm_model$bestTune$degree,
+  scale = svm_model$bestTune$scale
+)
+
+# Output the final model
+print(svc)
+
+```
+
+```{r}
+
+# Training accuracy
+train_predictions <- predict(svc, train_data)
+training_accuracy <- mean(train_predictions == train_data$Osteoporosis)
+cat("Training accuracy:", training_accuracy, "\n")
+
+# Testing accuracy
+test_predictions <- predict(svc, test_data)
+testing_accuracy <- mean(test_predictions == test_data$Osteoporosis)
+cat("Testing accuracy:", testing_accuracy, "\n")
+
+# Predictions
+cat("Predictions on test set:\n")
+print(test_predictions)
+
+
+```
+
+
+    CONSTRUCTING A COMPARISON OF THE CONFUSION MATRIX BETWEEN ALL FOUR MODEL WHICH WE HAVE TRAINED :
+    THE MODELS ARE:
+    -> LOGISTIC REGRESSION MODEL.
+    -> RANDOM FOREST MODEL.
+    -> DECISION TREE MODEL.
+    -> SUPPORT VECTOR MACHINE (SVM) MODEL.
+
+
+```{r}
+
+# Create a layout 
+par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
+
+# Confusion matrix for Logistic Regression
+cm_lr <- confusionMatrix(factor(test_pred), factor(y_test))
+pheatmap(as.matrix(cm_lr, mode = "numeric"), main = "Logistic Regression", display_numbers = TRUE)
+
+# Confusion matrix for Random Forest Classifier
+cm_rf <- confusionMatrix(factor(rfc_pred), factor(y_test))
+pheatmap(as.matrix(cm_rf, mode = "numeric"), main = "Random Forest Classifier", display_numbers = TRUE)
+
+# Confusion matrix for Decision Tree Classifier
+cm_dtree <- confusionMatrix(factor(dtree_pred), factor(y_test))
+pheatmap(as.matrix(cm_dtree, mode = "numeric"), main = "Decision Tree Classifier", display_numbers = TRUE)
+
+# Confusion matrix for Support Vector Classifier
+cm_svc <- confusionMatrix(factor(test_predictions), factor(y_test))
+pheatmap(as.matrix(cm_svc, mode = "numeric"), main = "Support Vector Classifier", display_numbers = TRUE)
+
+```
+
+    CONSTRUCTING A COMPARISON OF ACCURACY OF THE CONFUSION MATRIX BETWEEN ALL FOUR MODEL WHICH WE HAVE TRAINED :
+    THE MODELS ARE:
+    -> LOGISTIC REGRESSION MODEL.
+    -> RANDOM FOREST MODEL.
+    -> DECISION TREE MODEL.
+    -> SUPPORT VECTOR MACHINE (SVM) MODEL.
+
+```{r}
+# Confirm both y_test and predictions are factors with the same levels
+y_test <- factor(y_test)  # Convert y_test to factor if it's not already a factor
+
+# Define the models and their predictions 
+models <- c('Logistic Regression', 'Random Forest', 'Decision Tree', 'Support Vector Classifier')
+predictions <- list(test_pred, rfc_pred, dtree_pred, test_predictions) 
+
+# Calculate accuracy for every model
+accuracy <- sapply(predictions, function(pred) {
+  # Convert prediction to factor 
+  pred <- factor(pred, levels = levels(y_test))
+  
+  # Confusion matrix
+  cm <- confusionMatrix(pred, y_test)
+  cm$overall['Accuracy']  # Extract accuracy
+})
+
+# Create a data frame for plotting
+accuracy_df <- data.frame(models, accuracy)
+
+# Create the bar chart
+ggplot(accuracy_df, aes(x = models, y = accuracy, fill = models)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Model Accuracy", x = "Models", y = "Accuracy") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+    CONSTRUCTING A COMPARISON OF MODEL EVALUATION METRICS of the Mean Absolute Error (MAE), Mean Squared Error (MSE),      Root Mean Squared Error (RMSE), R2 Score BETWEEN ALL FOUR MODEL WHICH WE HAVE TRAINED :
+    THE MODELS ARE:
+    -> LOGISTIC REGRESSION MODEL.
+    -> RANDOM FOREST MODEL.
+    -> DECISION TREE MODEL.
+    -> SUPPORT VECTOR MACHINE (SVM) MODEL.
+
+
+```{r}
+
+# Convert factors or characters to numeric 
+y_test <- as.numeric(y_test)
+test_pred <- as.numeric(test_pred)
+rfc_pred <- as.numeric(rfc_pred)
+dtree_pred <- as.numeric(dtree_pred)
+test_predictions <- as.numeric(test_predictions)
+
+# Models list
+models <- c('Logistic Regression', 'Random Forest', 'Decision Tree', 'Support Vector Classifier')
+
+# Calculate Mean Absolute Error (MAE)
+mae <- c(
+  mean(abs(y_test - test_pred)),
+  mean(abs(y_test - rfc_pred)),
+  mean(abs(y_test - dtree_pred)),
+  mean(abs(y_test - test_predictions))
+)
+
+# Calculate Mean Squared Error (MSE)
+mse <- c(
+  mean((y_test - test_pred)^2),
+  mean((y_test - rfc_pred)^2),
+  mean((y_test - dtree_pred)^2),
+  mean((y_test - test_predictions)^2)
+)
+
+# Calculate Root Mean Squared Error (RMSE)
+rmse <- sqrt(mse)
+
+# Calculate R2 Score (using caret package)
+r2 <- c(
+  R2(y_test, test_pred),
+  R2(y_test, rfc_pred),
+  R2(y_test, dtree_pred),
+  R2(y_test, test_predictions)
+)
+
+# Create a data frame 
+metrics_df <- data.frame(
+  Model = rep(models, each = 4),
+  Metric = rep(c('MAE', 'MSE', 'RMSE', 'R2'), times = 4),
+  Value = c(mae, mse, rmse, r2)
+)
+
+# Plot the metrics 
+ggplot(metrics_df, aes(x = Model, y = Value, fill = Metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ Metric, scales = "free_y") +
+  theme_minimal() +
+  labs(title = "Model Evaluation Metrics", y = "Value") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+    CONSTRUCTING A COMPARISON OF FEATURE IMPORTANCE BETWEEN ALL FOUR MODEL WHICH WE HAVE TRAINED :
+    THE MODELS ARE:
+    -> LOGISTIC REGRESSION MODEL.
+    -> RANDOM FOREST MODEL.
+    -> DECISION TREE MODEL.
+    -> SUPPORT VECTOR MACHINE (SVM) MODEL.
+
+```{r}
+# Assuming 'df' is your dataframe 
+log_model <- glm(Osteoporosis ~ ., data = df, family = binomial)
+log_coefficients <- coef(log_model)[-1]  
+log_coefficients <- abs(log_coefficients)  
+
+# Create data frame for plotting
+log_feature_importance <- data.frame(
+  Feature = names(log_coefficients),
+  Importance = log_coefficients
+)
+
+# Sort the features by importance
+log_feature_importance <- log_feature_importance[order(log_feature_importance$Importance, decreasing = TRUE), ]
+
+# Plot the feature importance for Logistic Regression
+ggplot(log_feature_importance, aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  coord_flip() + 
+  labs(title = "Feature Importance for Logistic Regression", y = "Importance", x = "Feature") +
+  theme_minimal()
+
+
+# Feature Importance for Random Forest
+rf_model <- randomForest(Osteoporosis ~ ., data = df, importance = TRUE)
+
+# Extract the feature importances
+rf_feature_importance <- importance(rf_model)
+rf_feature_importance <- data.frame(
+  Feature = rownames(rf_feature_importance),
+  Importance = rf_feature_importance[, 1]  
+)
+
+# Sort the features by importance
+rf_feature_importance <- rf_feature_importance[order(rf_feature_importance$Importance, decreasing = TRUE), ]
+
+# Plot the feature importance for Random Forest
+ggplot(rf_feature_importance, aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "lightgreen") +
+  coord_flip() + 
+  labs(title = "Feature Importance for Random Forest", y = "Importance", x = "Feature") +
+  theme_minimal()
+
+
+# Feature Importance for Decision Tree
+dtree_model <- rpart(Osteoporosis ~ ., data = df, method = "class")
+
+# Extract the feature importances
+dtree_feature_importance <- data.frame(
+  Feature = names(dtree_model$variable.importance),
+  Importance = dtree_model$variable.importance
+)
+
+# Sort the features by importance
+dtree_feature_importance <- dtree_feature_importance[order(dtree_feature_importance$Importance, decreasing = TRUE), ]
+
+# Plot the feature importance for Decision Tree
+ggplot(dtree_feature_importance, aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  coord_flip() + 
+  labs(title = "Feature Importance for Decision Tree", y = "Importance", x = "Feature") +
+  theme_minimal()
+
+
+# Feature Importance for Support Vector Classifier
+svm_model <- svm(Osteoporosis ~ ., data = df, kernel = "linear", scale = TRUE)
+
+# Get the coefficients from the linear SVM model
+svm_coefficients <- coef(svm_model)
+
+# Remove the intercept term
+svm_coefficients <- svm_coefficients[-1]  # Exclude intercept
+
+# Get the feature names
+feature_names <- colnames(df)[-which(names(df) == "Osteoporosis")]
+
+# Create a data frame for feature importance
+svm_feature_importance <- data.frame(
+  Feature = feature_names,
+  Importance = abs(svm_coefficients)
+)
+
+# Sort the features by importance
+svm_feature_importance <- svm_feature_importance[order(svm_feature_importance$Importance, decreasing = TRUE), ]
+
+# Plot the feature importance for Support Vector Classifier
+ggplot(svm_feature_importance, aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  coord_flip() + 
+  labs(title = "Feature Importance for Support Vector Classifier (Linear SVM)", 
+       y = "Importance", 
+       x = "Feature") +
+  theme_minimal()
+
+```
