@@ -1,4 +1,4 @@
-# Osteoporosis-Risk-Prediction
+# Detection of Osteoporosis
 
 
 The purpose of this study is to use medical history analysis to assist patients in determining their risk of
